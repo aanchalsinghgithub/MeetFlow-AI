@@ -1,0 +1,81 @@
+{
+  "_people": {
+    "members": ["Aanchal", "Rohit", "Seema"],
+    "aliases": {
+      "aacha": "Aanchal",
+      "aachal": "Aanchal",
+      "anchal": "Aanchal",
+      "archer": "Aanchal",
+      "rohith": "Rohit",
+      "rohat": "Rohit",
+      "sima": "Seema",
+      "seemaa": "Seema",
+      "seama": "Seema"
+    }
+  },
+  "frontend": {
+    "keywords": [
+      "frontend",
+      "front-end",
+      "ui",
+      "react",
+      "css",
+      "page ui",
+      "login page ui",
+      "design the login page"
+    ],
+    "leader": "aanchal2025.singh@gmail.com"
+  },
+  "backend": {
+    "keywords": [
+      "backend",
+      "back-end",
+      "api",
+      "server",
+      "endpoint",
+      "database",
+      "schema",
+      "database schema",
+      "authentication",
+      "auth",
+      "login",
+      "validation",
+      "log",
+      "flow"
+    ],
+    "leader": "aanchal2025.singh@gmail.com"
+  },
+  "aws": {
+    "keywords": [
+      "aws",
+      "deploy",
+      "deployment",
+      "infrastructure",
+      "s3",
+      "ec2",
+      "lambda",
+      "cloud"
+    ],
+    "leader": "aanchal2025.singh@gmail.com"
+  },
+  "qa": {
+    "keywords": ["test", "testing", "qa", "bug", "quality", "regression"],
+    "leader": "aanchal2025.singh@gmail.com"
+  },
+  "ai_ml": {
+    "keywords": [
+      "model",
+      "training",
+      "dataset",
+      "ml",
+      "diarization",
+      "whisper",
+      "pipeline"
+    ],
+    "leader": "aanchal2025.singh@gmail.com"
+  },
+  "product": {
+    "keywords": ["roadmap", "feature", "requirement", "spec", "release"],
+    "leader": "aanchal2025.singh@gmail.com"
+  }
+}
