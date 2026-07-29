@@ -1,0 +1,34 @@
+{
+  "frontend": {
+    "leader": "frontendlead@company.com",
+    "keywords": ["react", "ui", "css", "frontend", "design", "dashboard", "login page", "filters"]
+  },
+  "backend": {
+    "leader": "backendlead@company.com",
+    "keywords": ["api", "database", "server", "authentication", "timeout", "endpoint"]
+  },
+  "devops": {
+    "leader": "devops@company.com",
+    "keywords": ["docker", "deployment", "pipeline", "ci/cd", "kubernetes", "release"]
+  },
+  "qa": {
+    "leader": "qalead@company.com",
+    "keywords": ["test", "bug", "regression", "qa", "validation"]
+  },
+  "security": {
+    "leader": "securitylead@company.com",
+    "keywords": ["security", "vulnerability", "jwt", "permission", "compliance"]
+  },
+  "database": {
+    "leader": "dblead@company.com",
+    "keywords": ["postgres", "sql", "migration", "schema", "index"]
+  },
+  "ai_ml": {
+    "leader": "ailead@company.com",
+    "keywords": ["model", "embedding", "transcription", "classification", "llm", "ai"]
+  },
+  "product": {
+    "leader": "productlead@company.com",
+    "keywords": ["roadmap", "demo", "client", "requirement", "feature"]
+  }
+}

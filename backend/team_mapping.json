@@ -1,0 +1,71 @@
+{
+  "_people": {
+    "members": [],
+    "aliases": {}
+  },
+  "frontend": {
+    "keywords": [
+      "frontend",
+      "front-end",
+      "ui",
+      "react",
+      "css",
+      "page ui",
+      "login page ui",
+      "design the login page"
+    ],
+    "leader": "frontend@gmail.com"
+  },
+  "backend": {
+    "keywords": [
+      "backend",
+      "back-end",
+      "api",
+      "server",
+      "endpoint",
+      "database",
+      "schema",
+      "database schema",
+      "authentication",
+      "auth",
+      "login",
+      "validation",
+      "log",
+      "flow"
+    ],
+    "leader": "backend@gmail.com"
+  },
+  "aws": {
+    "keywords": [
+      "aws",
+      "deploy",
+      "deployment",
+      "infrastructure",
+      "s3",
+      "ec2",
+      "lambda",
+      "cloud"
+    ],
+    "leader": "aws@gmail.com"
+  },
+  "qa": {
+    "keywords": ["test", "testing", "qa", "bug", "quality", "regression"],
+    "leader": "qa@gmail.com"
+  },
+  "ai_ml": {
+    "keywords": [
+      "model",
+      "training",
+      "dataset",
+      "ml",
+      "diarization",
+      "whisper",
+      "pipeline"
+    ],
+    "leader": "ai_ml@gmail.com"
+  },
+  "product": {
+    "keywords": ["roadmap", "feature", "requirement", "spec", "release"],
+    "leader": "product@gmail.com"
+  }
+}

@@ -1,0 +1,75 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f172a;
+  --surface:   #1e293b;
+  --border:    #334155;
+  --accent:    #6366f1;
+  --accent-h:  #818cf8;
+  --danger:    #ef4444;
+  --success:   #22c55e;
+  --warn:      #f59e0b;
+  --text:      #f1f5f9;
+  --muted:     #94a3b8;
+  --radius:    10px;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  height: 100vh;
+  overflow: hidden;
+}
+
+#root { height: 100vh; display: flex; flex-direction: column; }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  transition: opacity .15s, background .15s;
+}
+button:disabled { opacity: .45; cursor: default; }
+
+button.primary   { background: var(--accent);  color: #fff; }
+button.primary:hover:not(:disabled) { background: var(--accent-h); }
+button.danger    { background: var(--danger);  color: #fff; }
+button.danger:hover:not(:disabled) { opacity: .85; }
+button.ghost     { background: transparent; color: var(--muted); border: 1px solid var(--border); }
+button.ghost:hover:not(:disabled) { color: var(--text); border-color: var(--muted); }
+
+select, input {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  padding: 6px 10px;
+  font-size: 13px;
+  outline: none;
+  width: 100%;
+}
+select:focus, input:focus { border-color: var(--accent); }
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .3px;
+}
+.badge.green  { background: #14532d; color: #86efac; }
+.badge.blue   { background: #1e3a5f; color: #93c5fd; }
+.badge.yellow { background: #451a03; color: #fcd34d; }
+.badge.red    { background: #450a0a; color: #fca5a5; }
+.badge.gray   { background: #1e293b; color: #94a3b8; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }

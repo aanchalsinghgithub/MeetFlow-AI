@@ -1,0 +1,16 @@
+.env
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+meetflow.db
+node_modules/
+dist/
+frontend/dist/
+*.log
+
+*.zip
+*.wav
+*.mp3
+*.png

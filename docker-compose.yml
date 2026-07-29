@@ -1,0 +1,61 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: meetflow
+      POSTGRES_USER: meetflow
+      POSTGRES_PASSWORD: meetflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  chromadb:
+    image: chromadb/chroma:latest
+    ports:
+      - "8001:8000"
+    volumes:
+      - chroma_data:/chroma/chroma
+
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    depends_on:
+      - postgres
+      - redis
+      - chromadb
+    ports:
+      - "8002:8000"
+    command: uv run uvicorn app.main:app --host 0.0.0.0 --port 8000 --app-dir backend
+
+  worker:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    env_file: .env
+    depends_on:
+      - backend
+      - redis
+    command: uv run celery -A backend.app.workers.celery_app worker --loglevel=info
+
+  frontend:
+    build:
+      context: frontend
+      dockerfile: Dockerfile
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+    environment:
+      VITE_API_URL: http://localhost:8002
+
+volumes:
+  postgres_data:
+  chroma_data:
