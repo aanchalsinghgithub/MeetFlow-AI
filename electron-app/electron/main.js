@@ -128,10 +128,13 @@ function createWindow() {
 
   if (isDev) {
     loadDevServerWithRetry(mainWindow, "http://localhost:5173");
-    mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
     mainWindow.loadFile(path.join(__dirname, "../dist/index.html"));
   }
+  // TEMP: DevTools opened in production too, so we can see the exact
+  // fetch/CORS error causing the login "Failed to fetch" issue.
+  // Remove this line (or wrap it back in the isDev check) once fixed.
+  mainWindow.webContents.openDevTools({ mode: "detach" });
 
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.on("closed", () => {

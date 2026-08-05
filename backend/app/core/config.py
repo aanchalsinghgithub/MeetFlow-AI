@@ -13,7 +13,10 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password: str | None = None
-    backend_cors_origins: str = "http://localhost:5173"
+    backend_cors_origins: str = (
+    "http://localhost:5173,"
+    "https://meetflow-ai-frontend.vercel.app"
+     )
 
     google_client_id: str | None = None
     google_client_secret: str | None = None

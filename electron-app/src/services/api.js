@@ -8,7 +8,8 @@ async function base() {
   if (window.electronAPI) {
     return await window.electronAPI.getBackendUrl();
   }
-  return "http://localhost:8000";
+
+  return "https://meetflow-backend-moit.onrender.com";
 }
 
 async function authHeaders() {
@@ -76,17 +77,21 @@ export const api = {
   recentMeetings: () => get("/api/meetings/recent"),
   getMeeting: (id) => get(`/api/meetings/${id}`),
   getTranscript: (id, q = "") =>
-    get(`/api/meetings/${id}/transcript${q ? `?q=${encodeURIComponent(q)}` : ""}`),
+    get(
+      `/api/meetings/${id}/transcript${q ? `?q=${encodeURIComponent(q)}` : ""}`,
+    ),
   getMeetingStatus: (id) => get(`/api/meetings/${id}/status`),
 
   joinBot: (id) => post(`/api/meetings/${id}/join-bot`, {}),
-  setAutoJoin: (id, enabled) => post(`/api/meetings/${id}/auto-join`, { enabled }),
+  setAutoJoin: (id, enabled) =>
+    post(`/api/meetings/${id}/auto-join`, { enabled }),
   finalizeMeeting: (id) => post(`/api/meetings/${id}/finalize`, {}),
 
   getTask: (id) => get(`/api/tasks/${id}`),
 
   listApprovals: () => get("/api/approvals/queue"),
-  decideApproval: (taskId, payload) => post(`/api/approvals/${taskId}/decision`, payload),
+  decideApproval: (taskId, payload) =>
+    post(`/api/approvals/${taskId}/decision`, payload),
   // NEW: manually (re)send the meeting summary to a chosen recipient list -
   // defaults to participant_emails on the backend if recipients is [].
   sendMeetingSummary: (meetingId, recipients) =>

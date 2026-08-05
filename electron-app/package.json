@@ -1,6 +1,6 @@
 {
   "name": "meetflow-desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "MeetFlow AI Desktop — WASAPI loopback audio capture via Electron built-in",
   "main": "electron/main.js",
   "author": "MeetFlow AI",
@@ -29,10 +29,22 @@
   "build": {
     "appId": "ai.meetflow.desktop",
     "productName": "MeetFlow Desktop",
-    "directories": { "output": "dist-electron" },
-    "files": ["dist/**/*", "electron/**/*"],
+    "directories": {
+      "output": "dist-electron"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
     "win": {
-      "target": [{ "target": "nsis", "arch": ["x64"] }],
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
       "icon": "assets/icon.ico"
     },
     "nsis": {

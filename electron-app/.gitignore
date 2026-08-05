@@ -7,3 +7,5 @@ build/
 *.wav
 *.mp3
 *.png
+
+dist-electron/
