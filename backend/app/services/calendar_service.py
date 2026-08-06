@@ -14,7 +14,7 @@ import secrets
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
-from app.models.entities import CalendarConnection, Meeting, Participant
+from app.models.entities import CalendarConnection, Meeting, OAuthState, Participant
 from app.models.enums import MeetingProvider, MeetingStatus
 
 logger = logging.getLogger(__name__)
@@ -27,8 +27,9 @@ SCOPES = [
 
 GOOGLE_MEET_MARKER = "meet.google.com"
 
-# In-memory store for PKCE and tenant context between connect and callback.
-_pkce_store: dict[str, dict[str, int | str]] = {}
+# How long an OAuth state row is considered valid — the user just needs to
+# get through Google's consent screen within this window.
+STATE_TTL_MINUTES = 10
 
 
 def _generate_pkce_pair() -> tuple[str, str]:
@@ -83,7 +84,7 @@ class CalendarIntegrationService:
             redirect_uri=settings.google_redirect_uri,
         )
 
-    def get_authorization_url(self, user_id: int, organization_id: int) -> str:
+    def get_authorization_url(self, user_id: int, organization_id: int, db: Session) -> str:
         """Return the Google OAuth consent screen URL (with PKCE S256)."""
         flow = self._build_flow()
         code_verifier, code_challenge = _generate_pkce_pair()
@@ -94,21 +95,40 @@ class CalendarIntegrationService:
             code_challenge=code_challenge,
             code_challenge_method="S256",
         )
-        _pkce_store[state] = {
-            "code_verifier": code_verifier,
-            "user_id": user_id,
-            "organization_id": organization_id,
-        }
+
+        # Opportunistically clean up old/expired rows so this table doesn't
+        # grow unbounded from abandoned OAuth attempts.
+        cutoff = datetime.utcnow() - timedelta(minutes=STATE_TTL_MINUTES)
+        db.query(OAuthState).filter(OAuthState.created_at < cutoff).delete()
+
+        db.add(
+            OAuthState(
+                state=state,
+                code_verifier=code_verifier,
+                user_id=user_id,
+                organization_id=organization_id,
+            )
+        )
+        db.commit()
         return authorization_url
 
     def exchange_code(self, code: str, state: str, db: Session) -> CalendarConnection:
         """Exchange an OAuth authorization code for tokens and persist them."""
-        state_payload = _pkce_store.pop(state, None)
-        if not state_payload:
+        state_row = db.query(OAuthState).filter(OAuthState.state == state).one_or_none()
+        if not state_row:
             raise RuntimeError("OAuth state expired or invalid. Please reconnect Google Calendar.")
 
-        organization_id = int(state_payload["organization_id"])
-        code_verifier = state_payload.get("code_verifier")
+        cutoff = datetime.utcnow() - timedelta(minutes=STATE_TTL_MINUTES)
+        if state_row.created_at < cutoff:
+            db.delete(state_row)
+            db.commit()
+            raise RuntimeError("OAuth state expired or invalid. Please reconnect Google Calendar.")
+
+        organization_id = state_row.organization_id
+        code_verifier = state_row.code_verifier
+        db.delete(state_row)
+        db.commit()
+
         flow = self._build_flow(state=state)
         fetch_kwargs: dict = {"code": code}
         if code_verifier:

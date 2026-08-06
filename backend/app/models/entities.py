@@ -184,6 +184,25 @@ class CalendarConnection(Base, TimestampMixin):
     meetings: Mapped[list["Meeting"]] = relationship(back_populates="calendar_connection")
 
 
+class OAuthState(Base):
+    """Short-lived PKCE/state row for the Google Calendar OAuth flow.
+
+    Replaces the old in-process dict, which lost state whenever the
+    connect and callback requests landed on different workers/instances
+    (or the instance restarted in between) — causing "Could not connect
+    Google Calendar" even on a valid consent.
+    """
+
+    __tablename__ = "oauth_states"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    state: Mapped[str] = mapped_column(String(255), unique=True, index=True)
+    code_verifier: Mapped[str] = mapped_column(String(255))
+    user_id: Mapped[int] = mapped_column(Integer)
+    organization_id: Mapped[int] = mapped_column(Integer)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
+
+
 class Transcript(Base, TimestampMixin):
     __tablename__ = "transcripts"
 

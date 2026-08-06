@@ -21,12 +21,13 @@ def upcoming(provider: str, current_user: CurrentUser = Depends(get_current_user
 
 
 @router.get("/connect", response_model=CalendarAuthURL)
-def connect(current_user: CurrentUser = Depends(get_current_user)) -> CalendarAuthURL:
+def connect(current_user: CurrentUser = Depends(get_current_user), db: Session = Depends(get_db)) -> CalendarAuthURL:
     """Return the Google OAuth consent screen URL for the frontend to redirect to."""
     try:
         url = CalendarIntegrationService().get_authorization_url(
             user_id=current_user.user_id,
             organization_id=current_user.organization_id,
+            db=db,
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

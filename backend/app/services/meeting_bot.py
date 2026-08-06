@@ -11,7 +11,7 @@ import threading
 import time
 
 from app.core.database import SessionLocal
-from app.models.entities import Meeting
+from app.models.entities import Meeting, Organization
 from app.models.enums import MeetingStatus
 
 logger = logging.getLogger(__name__)
@@ -57,9 +57,11 @@ class MeetingBot:
         print(f"\n===== BOT STARTED FOR MEETING {self.meeting_id} =====\n")
         self._set_status(MeetingStatus.BOT_JOINING)
 
+        bot_name = self._bot_display_name()
+
         try:
             with self._launch_browser() as page:
-                self._join_meeting(page)
+                self._join_meeting(page, bot_name)
                 self._set_status(MeetingStatus.IN_PROGRESS)
                 self._monitor(page)
         except Exception:
@@ -69,6 +71,26 @@ class MeetingBot:
 
         if not self._stop_event.is_set():
             self._set_status(MeetingStatus.COMPLETED)
+
+    # ------------------------------------------------------------------
+    # Multi-tenant bot identity
+    # ------------------------------------------------------------------
+    def _bot_display_name(self) -> str:
+        """Build a per-organization guest name, e.g. 'Acme Corp Notetaker'.
+
+        No Google login/profile is used, so this works identically for
+        every tenant and never collides across organizations.
+        """
+        db = SessionLocal()
+        try:
+            meeting = db.get(Meeting, self.meeting_id)
+            if meeting:
+                org = db.get(Organization, meeting.organization_id)
+                if org:
+                    return f"{org.name} Notetaker"
+        finally:
+            db.close()
+        return "MeetFlow Notetaker"
 
     # ------------------------------------------------------------------
     # Browser control
@@ -81,24 +103,28 @@ class MeetingBot:
             from playwright.sync_api import sync_playwright
 
             with sync_playwright() as playwright:
-                context = playwright.chromium.launch_persistent_context(
-                    user_data_dir="C:/MeetFlow/google_profile",
-                    headless=False,
+                # NOTE: no user_data_dir / persistent profile here on purpose.
+                # This app is multi-tenant and Render has no display, so each
+                # meeting gets its own fresh, isolated, headless context and
+                # joins as an anonymous guest (no Google login needed).
+                browser = playwright.chromium.launch(
+                    headless=True,
                     args=[
                         "--use-fake-ui-for-media-stream",
                         "--disable-blink-features=AutomationControlled",
                     ],
                 )
-                pages = context.pages
-                page = pages[0] if pages else context.new_page()
+                context = browser.new_context(permissions=["camera", "microphone"])
+                page = context.new_page()
                 try:
                     yield page
                 finally:
                     context.close()
+                    browser.close()
 
         return _context()
 
-    def _join_meeting(self, page) -> None:
+    def _join_meeting(self, page, bot_name: str) -> None:
         print("\n===================================")
         print("STEP 1: OPENING GOOGLE MEET")
         print("===================================\n")
@@ -123,6 +149,13 @@ class MeetingBot:
             print("========== END PAGE CONTENT ==========\n")
         except Exception as e:
             print("Content Error:", e)
+
+        try:
+            name_input = page.get_by_placeholder("Your name")
+            name_input.fill(bot_name, timeout=5000)
+            print("SUCCESS: filled guest name ->", bot_name)
+        except Exception:
+            print("FAILED: could not find guest name field (may already be signed in)")
 
         for label in ["Turn off microphone", "Turn off camera"]:
             try:
