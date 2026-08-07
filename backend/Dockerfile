@@ -17,5 +17,8 @@ RUN uv run playwright install --with-deps chromium
 
 COPY backend ./backend
 COPY team_mapping.json ./team_mapping.json
+COPY entrypoint.sh ./entrypoint.sh
+RUN chmod +x ./entrypoint.sh
 
 EXPOSE 8000
+ENTRYPOINT ["/app/entrypoint.sh"]
