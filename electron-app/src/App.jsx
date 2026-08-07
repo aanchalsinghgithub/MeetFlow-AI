@@ -11,8 +11,21 @@ import { api, onUnauthorized } from "./services/api";
 // Settings bar
 // ------------------------------------------------------------------
 function SettingsBar({ onSave }) {
-  const [url, setUrl] = useState("http://localhost:8000");
+  const [url, setUrl] = useState("https://meetflow-backend-moit.onrender.com");
   const [ok, setOk] = useState(null);
+
+  // Pull whatever main.js actually has stored (it already defaults to the
+  // Render URL) so this input reflects the real current backend instead of
+  // always starting from a hardcoded default that could overwrite it.
+  useEffect(() => {
+    let mounted = true;
+    window.electronAPI?.getBackendUrl?.().then((stored) => {
+      if (mounted && stored) setUrl(stored);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function save() {
     if (window.electronAPI) await window.electronAPI.setBackendUrl(url);
