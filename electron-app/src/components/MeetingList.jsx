@@ -93,6 +93,11 @@ export default function MeetingList({ onSelect, selectedId, capturing }) {
               <span className={`badge ${STATUS_BADGE[m.status] || 'gray'}`}>
                 {statusLabel(m.status)}
               </span>
+              {m.status === 'failed' && m.error_message && (
+                <div style={styles.itemError} title={m.error_message}>
+                  {m.error_message}
+                </div>
+              )}
             </div>
           );
         })}
@@ -132,6 +137,10 @@ const styles = {
   },
   itemTitle:    { fontWeight: 600, marginBottom: 3 },
   itemMeta:     { color: 'var(--muted)', fontSize: 12, marginBottom: 5 },
+  itemError:    {
+    color: 'var(--danger)', fontSize: 11, marginTop: 5,
+    overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+  },
   empty:        { color: 'var(--muted)', textAlign: 'center', marginTop: 40 },
   error:        { color: 'var(--danger)', padding: '8px 16px', fontSize: 12 },
 };

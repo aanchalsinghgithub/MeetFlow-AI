@@ -26,6 +26,7 @@ class UpcomingMeetingRead(BaseModel):
     status: str
     auto_join: bool
     participants: list[str] = []
+    error_message: str | None = None
 
     class Config:
         from_attributes = True
@@ -40,6 +41,7 @@ class MeetingStatusRead(BaseModel):
     status: str
     auto_join: bool
     title: str
+    error_message: str | None = None
 
     class Config:
         from_attributes = True

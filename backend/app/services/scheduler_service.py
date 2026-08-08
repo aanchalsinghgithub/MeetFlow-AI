@@ -75,6 +75,13 @@ class SchedulerService:
 
             
 
+            # BUGFIX: this query had no lower bound on starts_at, so a
+            # meeting that failed to join once (e.g. bad link, host blocked
+            # the bot) got relaunched again every 15s *forever* — including
+            # meetings that started hours or days ago. That's a retry storm,
+            # not a retry. FAILED meetings are now only retried while still
+            # inside the same join window we'd use for a fresh join.
+            retry_after = now - timedelta(minutes=JOIN_WINDOW_MINUTES)
             due_meetings = (
                 db.query(Meeting)
                 .filter(
@@ -83,6 +90,7 @@ class SchedulerService:
                     Meeting.join_url.isnot(None),
                     Meeting.starts_at.isnot(None),
                     Meeting.starts_at <= window_end,
+                    Meeting.starts_at >= retry_after,
                 )
                 .all()
             )

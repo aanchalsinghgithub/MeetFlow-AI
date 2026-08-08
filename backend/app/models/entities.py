@@ -75,6 +75,10 @@ class Meeting(Base, TimestampMixin):
     blockers: Mapped[list[str]] = mapped_column(JSON, default=list)
     transcript: Mapped[list[dict]] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(String(40), default=MeetingStatus.SCHEDULED.value)
+    # BUGFIX: the bot had no way to tell the UI *why* a join attempt failed —
+    # the frontend only ever showed a bare "failed" badge. This stores the
+    # exception message from MeetingBot.run() so it can be surfaced.
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     auto_join: Mapped[bool] = mapped_column(Boolean, default=False)
     calendar_connection_id: Mapped[int | None] = mapped_column(ForeignKey("calendar_connections.id"), nullable=True)
 

@@ -23,6 +23,13 @@ class Settings(BaseSettings):
     google_redirect_uri: str = "http://localhost:8000/api/calendar/callback"
     frontend_url: str = "http://localhost:5173"
 
+    # NEW: path to a Playwright storage_state JSON (cookies + localStorage)
+    # for a Google account the bot should join meetings as, instead of an
+    # anonymous guest. Generated once locally via scripts/save_google_session.py
+    # — see meeting_bot.py::_launch_browser for how it's used. Optional: if
+    # the file doesn't exist, the bot falls back to anonymous guest join.
+    google_bot_storage_state_path: str = "google_auth_state.json"
+
     # --- BUGFIX: these fields were used throughout the code (security.py,
     # notification_service.py) but never declared here, so accessing them
     # raised AttributeError at runtime (e.g. on every login attempt). ---

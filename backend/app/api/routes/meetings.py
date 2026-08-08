@@ -3,6 +3,7 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -121,6 +122,7 @@ def upcoming_meetings(
             "status": meeting.status,
             "auto_join": meeting.auto_join,
             "participants": [p.name for p in meeting.participants],
+            "error_message": meeting.error_message,
         }
         for meeting in meetings
     ]
@@ -160,6 +162,7 @@ def recent_meetings(
             "status": meeting.status,
             "auto_join": meeting.auto_join,
             "participants": [p.name for p in meeting.participants],
+            "error_message": meeting.error_message,
         }
         for meeting in meetings
     ]
@@ -179,6 +182,8 @@ def _meeting_detail_dict(meeting: Meeting) -> dict:
         "risks": meeting.risks,
         "blockers": meeting.blockers,
         "transcript": meeting.transcript,
+        "status": meeting.status,
+        "error_message": meeting.error_message,
         "participants": [participant.name for participant in meeting.participants],
         "participant_emails": [participant.email for participant in meeting.participants if participant.email],
         "task_count": len(meeting.tasks),
@@ -417,6 +422,39 @@ def join_bot(
 
     print(f"JOIN RESULT => {result}")
     return result
+
+
+# NEW: on Render there's no way to see the browser or SSH in on the free
+# tier, so meeting_bot.py's debug screenshots (meet_debug_<id>.png,
+# after_join_attempt_<id>.png) were being saved to disk but were completely
+# unreachable — you couldn't actually see what the bot saw when it failed.
+# This just serves them back so you can open them in a browser tab.
+@router.get("/{meeting_id}/debug-screenshot")
+def get_debug_screenshot(
+    meeting_id: int,
+    stage: str = "pre_join",  # "pre_join" | "after_join_attempt"
+    db: Session = Depends(get_db),
+    current_user: CurrentUser = Depends(get_current_user),
+):
+    meeting = _get_org_meeting(db, meeting_id, current_user.organization_id)
+    if not meeting:
+        raise HTTPException(status_code=404, detail="Meeting not found")
+
+    filename = (
+        f"meet_debug_{meeting_id}.png"
+        if stage == "pre_join"
+        else f"after_join_attempt_{meeting_id}.png"
+    )
+    path = Path(filename)
+    if not path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"No '{stage}' debug screenshot for meeting {meeting_id} yet. "
+                "Trigger a join attempt first (auto-join or POST /join-bot)."
+            ),
+        )
+    return FileResponse(path, media_type="image/png")
 
 
 @router.post("/{meeting_id}/test-transcript")
