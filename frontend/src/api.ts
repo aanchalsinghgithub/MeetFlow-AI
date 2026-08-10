@@ -77,3 +77,24 @@ export type CalendarConnection = {
   user_email: string;
   connected: boolean;
 };
+
+export type BotSessionStatus = {
+  configured: boolean;
+  email: string | null;
+};
+
+// The bot needs to join Meet as a real logged-in Google account instead of
+// an anonymous guest (Google blocks anonymous/automated guest joins). This
+// takes the cookies.txt a person exports from their own browser (via the
+// "Get cookies.txt LOCALLY" extension, after signing in normally) and
+// stores it against their organization — see BotAccountSettings.tsx.
+export async function uploadBotSessionCookiesFile(email: string, file: File): Promise<BotSessionStatus> {
+  const form = new FormData();
+  form.append('email', email);
+  form.append('file', file);
+  return (await api.post<BotSessionStatus>('/api/organizations/google-bot-session/upload-cookies-file', form)).data;
+}
+
+export async function clearBotSession(): Promise<BotSessionStatus> {
+  return (await api.delete<BotSessionStatus>('/api/organizations/google-bot-session')).data;
+}

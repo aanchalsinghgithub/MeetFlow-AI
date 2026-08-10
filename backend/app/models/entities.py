@@ -19,6 +19,16 @@ class Organization(Base):
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
 
+    # NEW: per-organization Google account the meeting bot joins as. Each
+    # org can now have its own bot identity instead of every tenant sharing
+    # one global account. `google_bot_storage_state` is the Playwright
+    # session (cookies/localStorage) as a JSON string — NOTE: stored as
+    # plaintext for now, same sensitivity as a session token/API key. If
+    # this DB is ever exposed, that session is compromised; encrypting this
+    # column is a reasonable follow-up but out of scope here.
+    google_bot_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    google_bot_storage_state: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     users: Mapped[list["User"]] = relationship(back_populates="organization")
     calendar_connections: Mapped[list["CalendarConnection"]] = relationship(back_populates="organization")
     meetings: Mapped[list["Meeting"]] = relationship(back_populates="organization")

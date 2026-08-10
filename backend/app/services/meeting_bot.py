@@ -6,6 +6,7 @@ This bot only handles browser automation and meeting lifecycle.
 """
 from __future__ import annotations
 
+import json
 import logging
 import threading
 import time
@@ -86,19 +87,36 @@ class MeetingBot:
     def _bot_display_name(self) -> str:
         """Build a per-organization guest name, e.g. 'Acme Corp Notetaker'.
 
-        No Google login/profile is used, so this works identically for
-        every tenant and never collides across organizations.
+        Only used for the anonymous-guest fallback — a logged-in Google
+        account shows its own profile name in Meet regardless of this.
         """
+        org = self._organization()
+        if org:
+            return f"{org.name} Notetaker"
+        return "MeetFlow Notetaker"
+
+    def _organization(self) -> Organization | None:
         db = SessionLocal()
         try:
             meeting = db.get(Meeting, self.meeting_id)
             if meeting:
-                org = db.get(Organization, meeting.organization_id)
-                if org:
-                    return f"{org.name} Notetaker"
+                return db.get(Organization, meeting.organization_id)
         finally:
             db.close()
-        return "MeetFlow Notetaker"
+        return None
+
+    def _org_google_session(self) -> tuple[str | None, dict | None]:
+        """Each organization can save its own bot Google account instead of
+        every tenant sharing one. Returns (email, storage_state_dict) — both
+        None if this org hasn't set one up (POST /organizations/google-bot-session).
+        """
+        org = self._organization()
+        if org and org.google_bot_storage_state:
+            try:
+                return org.google_bot_email, json.loads(org.google_bot_storage_state)
+            except json.JSONDecodeError:
+                logger.error("Org %s has corrupt google_bot_storage_state", org.id)
+        return None, None
 
     # ------------------------------------------------------------------
     # Browser control
@@ -142,15 +160,24 @@ class MeetingBot:
                 )
 
                 # NEW: join as a real logged-in Google account instead of an
-                # anonymous guest, if a saved session exists. This is a
+                # anonymous guest, if a session is available. This is a
                 # *reused* session only — we deliberately never do a live
                 # email/password login here. An automated login attempt from
                 # a fresh headless cloud browser hits the exact same
                 # "unusual traffic" block as anonymous joins did, usually
                 # worse, since Google scrutinizes login flows harder than
                 # page views. The session must be generated once, locally,
-                # in a real headed browser (see scripts/save_google_session.py),
-                # then reused here as-is.
+                # in a real headed browser (see scripts/save_google_session.py).
+                #
+                # BUGFIX: this used to be one global file, i.e. one shared
+                # Google account for every organization in the app — every
+                # tenant's bot would show up as the exact same account.
+                # Each org's own session (set via
+                # POST /organizations/google-bot-session, uploaded with
+                # scripts/upload_google_session.py) now takes priority; the
+                # global file is kept only as a fallback for orgs that
+                # haven't configured their own yet.
+                org_email, org_storage_state = self._org_google_session()
                 storage_state_path = Path(settings.google_bot_storage_state_path)
                 context_kwargs: dict = dict(
                     permissions=["camera", "microphone"],
@@ -161,14 +188,14 @@ class MeetingBot:
                         "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
                     ),
                 )
-                if storage_state_path.exists():
-                    print(f"Using saved Google session: {storage_state_path}")
+                if org_storage_state is not None:
+                    print(f"Using org's saved Google session ({org_email})")
+                    context_kwargs["storage_state"] = org_storage_state
+                elif storage_state_path.exists():
+                    print(f"Using fallback global Google session: {storage_state_path}")
                     context_kwargs["storage_state"] = str(storage_state_path)
                 else:
-                    print(
-                        f"No saved Google session at {storage_state_path} — "
-                        "joining as anonymous guest."
-                    )
+                    print("No saved Google session for this org — joining as anonymous guest.")
 
                 context = browser.new_context(**context_kwargs)
                 page = context.new_page()
