@@ -13,6 +13,20 @@ class Settings(BaseSettings):
     smtp_port: int = 587
     smtp_username: str | None = None
     smtp_password: str | None = None
+
+    # NEW: Render's free web services block outbound traffic on every SMTP
+    # port (25, 465, 587) as of Sep 2025 - so smtp_host/smtp_username/
+    # smtp_password above can be perfectly correct and email will still
+    # never send on a free instance; it's a network-level block, not a
+    # credentials problem. Brevo's email API goes over plain HTTPS (443),
+    # which isn't blocked, so email_service.py now sends through it when
+    # configured. Get a free key (300 emails/day, no card) at
+    # https://app.brevo.com/settings/keys/api. brevo_sender_email must be
+    # a sender you've verified in Brevo (Settings -> Senders).
+    brevo_api_key: str | None = None
+    brevo_sender_email: str | None = None
+    brevo_sender_name: str = "MeetFlow AI"
+
     backend_cors_origins: str = (
     "http://localhost:5173,"
     "https://meetflow-ai-frontend.vercel.app"

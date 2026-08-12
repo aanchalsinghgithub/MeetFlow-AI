@@ -3,10 +3,14 @@ import smtplib
 import traceback
 from email.message import EmailMessage
 
+import httpx
+
 from app.core.config import settings
 from app.models.entities import Meeting, Task
 
 logger = logging.getLogger(__name__)
+
+BREVO_SEND_URL = "https://api.brevo.com/v3/smtp/email"
 
 
 class EmailSendError(Exception):
@@ -63,11 +67,57 @@ class EmailService:
     ) -> bool:
         """Send a single email.
 
-        Returns True if the message was handed off to the SMTP server
-        successfully, False otherwise. If raise_on_failure is True, failures
-        raise EmailSendError(str(original_exception)) instead of returning
-        False, so the caller can report the exact reason upstream.
+        Returns True if the message was handed off successfully, False
+        otherwise. If raise_on_failure is True, failures raise
+        EmailSendError(str(reason)) instead of returning False, so the
+        caller can report the exact reason upstream.
+
+        BUGFIX: tries Brevo's HTTPS email API first (see config.py note -
+        Render's free tier blocks outbound SMTP ports entirely, so SMTP
+        below can never succeed there regardless of how correct the
+        credentials are). Falls back to raw SMTP only if Brevo isn't
+        configured, so this keeps working unchanged on hosts where SMTP
+        actually is allowed (e.g. local dev, a paid Render plan, a VPS).
         """
+        if settings.brevo_api_key and settings.brevo_sender_email:
+            try:
+                return self._send_via_brevo(to_email, subject, body)
+            except (httpx.HTTPError, KeyError) as e:
+                reason = f"Brevo send failed: {type(e).__name__}: {e}"
+                logger.error(reason)
+                if raise_on_failure:
+                    raise EmailSendError(reason) from e
+                return False
+
+        return self._send_via_smtp(to_email, subject, body, raise_on_failure=raise_on_failure)
+
+    @staticmethod
+    def _send_via_brevo(to_email: str, subject: str, body: str) -> bool:
+        payload = {
+            "sender": {"email": settings.brevo_sender_email, "name": settings.brevo_sender_name},
+            "to": [{"email": to_email}],
+            "subject": subject,
+            "textContent": body,
+        }
+        headers = {"api-key": settings.brevo_api_key, "content-type": "application/json"}
+        with httpx.Client(timeout=20) as client:
+            response = client.post(BREVO_SEND_URL, headers=headers, json=payload)
+        response.raise_for_status()
+
+        logger.info("=========================")
+        logger.info("EMAIL SENT SUCCESSFULLY (via Brevo)")
+        logger.info("Recipient: %s", to_email)
+        logger.info("=========================")
+        return True
+
+    @staticmethod
+    def _send_via_smtp(
+        to_email: str,
+        subject: str,
+        body: str,
+        *,
+        raise_on_failure: bool,
+    ) -> bool:
         if not settings.smtp_host:
             reason = (
                 "SMTP_HOST is not configured (settings.smtp_host is empty). "
@@ -124,7 +174,7 @@ class EmailService:
             return False
 
         logger.info("=========================")
-        logger.info("EMAIL SENT SUCCESSFULLY")
+        logger.info("EMAIL SENT SUCCESSFULLY (via SMTP)")
         logger.info("Recipient: %s", to_email)
         logger.info("=========================")
         return True
