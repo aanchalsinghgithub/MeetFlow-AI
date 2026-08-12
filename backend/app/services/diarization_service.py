@@ -2,10 +2,16 @@ import os
 import logging
 from functools import lru_cache
 
-import soundfile as sf
-import torch
-
 logger = logging.getLogger(__name__)
+
+# BUGFIX: `import torch` (and soundfile) used to sit at module level here.
+# This file gets imported at server *startup* via meetings.py ->
+# transcription_service.py -> speaker_service.py -> diarization_service.py
+# — regardless of ENABLE_DIARIZATION — so torch was being loaded into
+# memory on every boot even with diarization fully disabled. On a 512MB
+# instance that's a meaningful chunk of the budget gone before a single
+# request is even served. Moved both imports inside `diarize()` so they
+# only happen if diarization is actually enabled and actually used.
 
 # NOTE: newer pyannote.audio releases resolve the old "speaker-diarization-3.1"
 # slug to the pyannote/speaker-diarization-community-1 repo's assets (that's
@@ -61,6 +67,11 @@ class DiarizationService:
             return []
 
         try:
+            # Deferred: only pulled in when diarization is actually enabled
+            # and reached (see module-level BUGFIX note above).
+            import soundfile as sf
+            import torch
+
             pipeline = _get_diarization_pipeline()
             # BUGFIX: passing a raw file path makes pyannote try to decode
             # audio via torchcodec, which was failing silently on Windows
