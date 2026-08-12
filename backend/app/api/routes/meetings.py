@@ -1,3 +1,5 @@
+import asyncio
+from collections import defaultdict
 from datetime import datetime
 import tempfile
 from pathlib import Path
@@ -33,6 +35,39 @@ from app.models.enums import MeetingStatus
 from app.schemas.meeting import TranscriptTurn
 
 router = APIRouter()
+
+# ------------------------------------------------------------------
+# BUGFIX: root cause of the 502/503 storm during live capture.
+#
+# `upload_audio_chunk` is an `async def` endpoint, but the transcription
+# work it calls (Whisper CPU inference + pyannote diarization) is fully
+# synchronous, CPU-bound, and can easily take longer than the 15s chunk
+# interval. Calling it directly inside the coroutine blocks uvicorn's
+# single-threaded event loop for the whole duration - which means:
+#   - /health can't be answered, so Render's health check fails and
+#     restarts/replaces the instance (-> 502 while it's down).
+#   - every other concurrent request (GET /upcoming, another chunk POST)
+#     queues behind it and eventually gets 502/503 from Render's proxy.
+#
+# The Electron side (audioCapture.js) also fires a new chunk every
+# `chunkSeconds` regardless of whether the previous chunk's request has
+# finished, so if one chunk's transcription takes >15s, the *next*
+# chunk's request lands on top of it - now two heavy CPU jobs are
+# running at once on a memory-constrained host, which is enough on its
+# own to OOM-kill the process (see ENABLE_DIARIZATION note in
+# app/core/config.py).
+#
+# Two-part fix:
+#   1. Run the blocking work in a worker thread (asyncio.to_thread) so
+#      the event loop - and therefore /health and every other route -
+#      stays responsive no matter how long transcription takes.
+#   2. Serialize chunks *per meeting* with a lock, so even if the
+#      frontend sends chunk N+1 before chunk N's transcription finished,
+#      they run one at a time instead of piling up concurrently and
+#      spiking memory. (Paired with a matching client-side fix that
+#      stops sending chunk N+1 until chunk N's request has resolved.)
+# ------------------------------------------------------------------
+_meeting_audio_locks: dict[int, asyncio.Lock] = defaultdict(asyncio.Lock)
 
 
 def _get_org_meeting(db: Session, meeting_id: int, organization_id: int) -> Meeting | None:
@@ -333,10 +368,19 @@ async def upload_audio_chunk(
         tmp_path = Path(tmp.name)
 
     try:
-        transcription = TranscriptionService()
-        entries: list[Transcript] = transcription.process_chunk_and_store(
-            db, meeting_id, tmp_path, chunk_offset_seconds=chunk_offset
-        )
+        # Serialize per meeting (see note above) and run the blocking
+        # transcription/diarization work off the event loop thread so the
+        # server keeps answering health checks and other requests while a
+        # chunk is being processed.
+        async with _meeting_audio_locks[meeting_id]:
+            transcription = TranscriptionService()
+            entries: list[Transcript] = await asyncio.to_thread(
+                transcription.process_chunk_and_store,
+                db,
+                meeting_id,
+                tmp_path,
+                chunk_offset_seconds=chunk_offset,
+            )
         return {
             "status": "ok",
             "meeting_id": meeting_id,

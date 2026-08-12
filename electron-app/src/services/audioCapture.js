@@ -73,6 +73,18 @@ export class AudioCapture {
     this._samples     = [];
     this._chunkIndex  = 0;
     this._running     = false;
+
+    // BUGFIX: onaudioprocess used to call `this._sendChunk(...)` without
+    // awaiting it, so a new chunk POST fired every `chunkSeconds` seconds
+    // no matter whether the previous chunk's request had finished. Whisper
+    // transcription (+ diarization) on the backend can take longer than
+    // the 15s chunk interval, so this routinely piled up several
+    // concurrent heavy transcription requests on the backend at once -
+    // enough to OOM-crash a memory-constrained instance and take down
+    // *every* in-flight request (including unrelated ones like
+    // GET /upcoming) with 502/503s. Chunks are now queued and sent one at
+    // a time, waiting for each request to settle before starting the next.
+    this._sendQueue   = Promise.resolve();
   }
 
   // ------------------------------------------------------------------
@@ -118,7 +130,14 @@ export class AudioCapture {
 
       while (this._samples.length >= samplesPerChunk) {
         const chunk = this._samples.splice(0, samplesPerChunk);
-        this._sendChunk(new Float32Array(chunk), this._chunkIndex++);
+        const index = this._chunkIndex++;
+        // Chain onto the queue instead of firing immediately - each chunk
+        // now waits for the previous one's request (including retries) to
+        // finish before it's sent, so the backend never sees overlapping
+        // transcription jobs for the same meeting.
+        this._sendQueue = this._sendQueue.then(() =>
+          this._sendChunk(new Float32Array(chunk), index)
+        );
       }
     };
 
@@ -133,9 +152,13 @@ export class AudioCapture {
     if (!this._running) return;
     this._running = false;
 
-    // Flush remaining samples as a final (possibly short) chunk
+    // Flush remaining samples as a final (possibly short) chunk - still
+    // goes through the queue so it doesn't overlap a chunk already in
+    // flight.
     if (this._samples.length > 100) {
-      this._sendChunk(new Float32Array(this._samples), this._chunkIndex++);
+      const finalChunk = new Float32Array(this._samples);
+      const index = this._chunkIndex++;
+      this._sendQueue = this._sendQueue.then(() => this._sendChunk(finalChunk, index));
     }
     this._samples = [];
 
@@ -154,7 +177,17 @@ export class AudioCapture {
   get isRunning() { return this._running; }
 
   // ------------------------------------------------------------------
-  async _sendChunk(float32, chunkIndex) {
+  // BUGFIX: a chunk that failed (e.g. a transient 502/503 while the
+  // backend was mid-restart) used to just log an error and vanish - that
+  // slice of audio was gone forever, with a gap in the transcript. 502,
+  // 503, and network-level failures are usually transient (a redeploy, a
+  // cold start, a momentary overload), so those are now retried a few
+  // times with a short backoff before giving up. A 400 "meeting not
+  // active" is NOT retried - that's a real rejection, not a hiccup.
+  async _sendChunk(float32, chunkIndex, attempt = 1) {
+    const MAX_ATTEMPTS = 4;
+    const RETRY_DELAY_MS = 2000;
+
     const offsetSeconds = chunkIndex * this.chunkSeconds;
     const wav           = encodeWav(float32, SAMPLE_RATE);
     const blob          = new Blob([wav], { type: 'audio/wav' });
@@ -171,6 +204,16 @@ export class AudioCapture {
     const token = await window.electronAPI?.getAuthToken?.();
     const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
+    const retryable = async (reason) => {
+      if (attempt >= MAX_ATTEMPTS) {
+        this.onError(`Chunk ${chunkIndex} dropped after ${attempt} attempts: ${reason}`);
+        return;
+      }
+      this.onError(`${reason} — retrying chunk ${chunkIndex} (attempt ${attempt + 1}/${MAX_ATTEMPTS})`);
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS * attempt));
+      return this._sendChunk(float32, chunkIndex, attempt + 1);
+    };
+
     try {
       const res = await fetch(url, { method: 'POST', headers, body: formData });
       if (!res.ok) {
@@ -184,13 +227,21 @@ export class AudioCapture {
           this.stop();
           return;
         }
+        // Bad Gateway / Service Unavailable almost always mean the
+        // backend instance is restarting or briefly overloaded, not that
+        // this chunk is invalid — worth a retry instead of dropping it.
+        if (res.status === 502 || res.status === 503 || res.status === 504) {
+          return retryable(`Backend ${res.status}`);
+        }
         this.onError(`Backend ${res.status}: ${text}`);
         return;
       }
       const json = await res.json();
       this.onTranscript(json);
     } catch (err) {
-      this.onError(`Chunk POST failed: ${err.message}`);
+      // Network-level failure (connection reset, DNS hiccup, etc.) — also
+      // worth retrying rather than losing the chunk.
+      return retryable(`Chunk POST failed: ${err.message}`);
     }
   }
 }

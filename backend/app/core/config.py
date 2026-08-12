@@ -28,15 +28,18 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     slack_webhook_url: str | None = None
 
-    # NEW: speaker diarization (pyannote) is a second, separately-loaded
+    # BUGFIX: speaker diarization (pyannote) is a second, separately-loaded
     # torch model kept in memory alongside Whisper for the whole process
     # lifetime — on a RAM-constrained host (e.g. Render's free 512MB tier)
     # loading both at once can be enough on its own to OOM, with nothing
-    # to do with any other feature. Set ENABLE_DIARIZATION=false to skip
-    # loading pyannote entirely; transcripts still work, every segment is
-    # just labelled "Unknown" instead of "Speaker 1"/"Speaker 2". Defaults
-    # to true so behavior is unchanged unless you opt out.
-    enable_diarization: bool = True
+    # to do with any other feature. This was the main remaining cause of
+    # the backend crash-looping (502/503) during live capture. The
+    # product doesn't need "who said what" (see diarization_service.py /
+    # speaker_service.py), so this now defaults to false: pyannote is
+    # never imported or loaded, and every segment is just labelled
+    # "Unknown" instead of "Speaker 1"/"Speaker 2". Can still be turned
+    # back on with ENABLE_DIARIZATION=true if that ever changes.
+    enable_diarization: bool = False
 
     @property
     def cors_origins(self) -> list[str]:
