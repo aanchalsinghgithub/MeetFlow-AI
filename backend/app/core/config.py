@@ -28,6 +28,16 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 60
     slack_webhook_url: str | None = None
 
+    # NEW: speaker diarization (pyannote) is a second, separately-loaded
+    # torch model kept in memory alongside Whisper for the whole process
+    # lifetime — on a RAM-constrained host (e.g. Render's free 512MB tier)
+    # loading both at once can be enough on its own to OOM, with nothing
+    # to do with any other feature. Set ENABLE_DIARIZATION=false to skip
+    # loading pyannote entirely; transcripts still work, every segment is
+    # just labelled "Unknown" instead of "Speaker 1"/"Speaker 2". Defaults
+    # to true so behavior is unchanged unless you opt out.
+    enable_diarization: bool = True
+
     @property
     def cors_origins(self) -> list[str]:
         return [origin.strip() for origin in self.backend_cors_origins.split(",") if origin.strip()]

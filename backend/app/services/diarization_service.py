@@ -48,6 +48,18 @@ class DiarizationService:
         if DiarizationService._unavailable:
             return []
 
+        from app.core.config import settings
+
+        if not settings.enable_diarization:
+            # NEW: lets diarization be turned off entirely without code
+            # changes (ENABLE_DIARIZATION=false) — pyannote is a second
+            # torch model loaded permanently alongside Whisper, and on a
+            # RAM-constrained host the two together can be enough to OOM
+            # on their own. Segments just come back "Unknown" instead of
+            # "Speaker 1"/"Speaker 2"; the rest of the pipeline is
+            # unaffected.
+            return []
+
         try:
             pipeline = _get_diarization_pipeline()
             # BUGFIX: passing a raw file path makes pyannote try to decode
