@@ -7,7 +7,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.router import api_router
 from app.core.config import settings
-from app.services.scheduler_service import scheduler_service
 
 app = FastAPI(
     title="MeetFlow AI",
@@ -24,16 +23,6 @@ app.add_middleware(
 )
 
 app.include_router(api_router, prefix="/api")
-
-
-@app.on_event("startup")
-def on_startup() -> None:
-    scheduler_service.start()
-
-
-@app.on_event("shutdown")
-def on_shutdown() -> None:
-    scheduler_service.shutdown()
 
 
 @app.get("/health")

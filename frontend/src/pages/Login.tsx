@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { Bot, LogIn } from 'lucide-react';
+import { LogIn, Sparkles } from 'lucide-react';
 import { useAuth } from '../auth';
 
 export function Login({ onShowSignup, onBack }: { onShowSignup: () => void; onBack?: () => void }) {
@@ -62,7 +62,7 @@ export function AuthFrame({
           disabled={!onBack}
         >
           <div className="grid h-11 w-11 place-items-center rounded bg-white text-ocean">
-            <Bot size={23} />
+            <Sparkles size={23} />
           </div>
           <div>
             <div className="text-xl font-semibold">MeetFlow AI</div>
@@ -83,7 +83,7 @@ export function AuthFrame({
               className="mb-4 flex items-center gap-2 text-sm font-medium text-stone-500 hover:text-ocean lg:hidden"
               onClick={onBack}
             >
-              <Bot size={16} />
+              <Sparkles size={16} />
               MeetFlow AI
             </button>
           )}

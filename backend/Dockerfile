@@ -13,8 +13,6 @@ WORKDIR /app
 COPY pyproject.toml README.md ./
 RUN uv sync --no-dev
 
-RUN uv run playwright install --with-deps chromium
-
 COPY backend ./backend
 COPY team_mapping.json ./team_mapping.json
 

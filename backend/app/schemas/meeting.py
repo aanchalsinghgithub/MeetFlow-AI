@@ -91,7 +91,6 @@ class MeetingRead(BaseModel):
     blockers: list[BlockerItem] = []
     transcript: list[dict] = []
     status: str = "scheduled"
-    error_message: str | None = None
 
     class Config:
         from_attributes = True

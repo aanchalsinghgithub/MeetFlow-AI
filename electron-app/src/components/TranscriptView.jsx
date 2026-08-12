@@ -34,7 +34,7 @@ export default function TranscriptView({ meeting, liveEntries }) {
     }
 
     poll();
-    const isActive = ['bot_joining', 'in_progress'].includes(meeting.status);
+    const isActive = meeting.status === 'in_progress';
     setPolling(isActive);
 
     if (!isActive) return;

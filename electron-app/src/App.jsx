@@ -135,31 +135,13 @@ export default function App() {
     });
   }, [handleSignOut]);
 
-  // Join bot when capture starts (so backend marks meeting in_progress)
+  // Starts WASAPI capture. The transcript comes entirely from this —
+  // captured audio is streamed to the backend and transcribed by Whisper.
   const handleStart = useCallback(async () => {
     setCaptureError(null);
     setLiveEntries([]);
-    try {
-      // BUGFIX: this only ran when status was exactly "scheduled". Once a
-      // meeting failed once (very likely during testing), status flips to
-      // "failed" and every future "Start Capture" click would silently skip
-      // calling joinBot entirely — capture would start, but nothing ever
-      // tried to join the call again. This is very likely why the bot
-      // "stopped joining" after the first failed attempt. "failed" is now
-      // included so Start Capture retries the join too.
-      if (["scheduled", "failed"].includes(selectedMeeting?.status)) {
-        await api.joinBot(selectedMeeting.id);
-      }
-    } catch (e) {
-      // BUGFIX: this was console.warn-only ("non-fatal") — the join could
-      // fail and you'd never see it anywhere in the app, only capture
-      // silently starting anyway. Now it's surfaced the same way capture
-      // errors already are.
-      console.warn("joinBot failed:", e.message);
-      setCaptureError(`Bot could not join the meeting: ${e.message}`);
-    }
     setCapturing(true);
-  }, [selectedMeeting]);
+  }, []);
 
   const handleStop = useCallback(async () => {
     setCapturing(false);

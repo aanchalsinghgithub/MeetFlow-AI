@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient, useMutation } from '@tanstack/react-query';
 import { CalendarDays, Link2, RefreshCw } from 'lucide-react';
 import { api, CalendarAuthURL, CalendarConnection, UpcomingMeeting } from '../api';
 
@@ -24,7 +24,6 @@ function formatDuration(starts_at: string | null, ends_at: string | null): strin
 
 const statusLabels: Record<string, string> = {
   scheduled: 'Scheduled',
-  bot_joining: 'Bot joining...',
   in_progress: 'In progress',
   completed: 'Completed',
   failed: 'Failed'
@@ -32,7 +31,6 @@ const statusLabels: Record<string, string> = {
 
 const statusStyles: Record<string, string> = {
   scheduled: 'bg-stone-100 text-stone-600',
-  bot_joining: 'bg-amber-100 text-amber-700',
   in_progress: 'bg-emerald-100 text-emerald-700',
   completed: 'bg-stone-100 text-stone-500',
   failed: 'bg-red-100 text-red-700'
@@ -59,12 +57,6 @@ export function MeetingsDashboard({ onOpenTranscript }: { onOpenTranscript: (mee
     onSuccess: (data) => {
       window.location.href = data.authorization_url;
     }
-  });
-
-  const toggleAutoJoin = useMutation({
-    mutationFn: async ({ meetingId, enabled }: { meetingId: number; enabled: boolean }) =>
-      (await api.post<UpcomingMeeting>(`/api/meetings/${meetingId}/auto-join`, { enabled })).data,
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['meetings-upcoming'] })
   });
 
   const isConnected = connections.data.length > 0;
@@ -104,7 +96,7 @@ export function MeetingsDashboard({ onOpenTranscript }: { onOpenTranscript: (mee
       <div className="rounded border border-stone-200 bg-white">
         <div className="border-b border-stone-200 p-4">
           <h3 className="font-semibold">Upcoming Meetings</h3>
-          <p className="text-sm text-stone-500">Google Meet meetings from your connected calendar, with Auto Join controls.</p>
+          <p className="text-sm text-stone-500">Google Meet meetings from your connected calendar.</p>
         </div>
         {meetings.data.length === 0 ? (
           <div className="p-6 text-sm text-stone-500">
@@ -132,22 +124,6 @@ export function MeetingsDashboard({ onOpenTranscript }: { onOpenTranscript: (mee
                   <span className={`rounded px-2 py-1 text-xs font-medium ${statusStyles[meeting.status] ?? 'bg-stone-100 text-stone-600'}`}>
                     {statusLabels[meeting.status] ?? meeting.status}
                   </span>
-                  <label className="flex items-center gap-2 text-sm">
-                    <span className="text-stone-500">Auto Join</span>
-                    <button
-                      role="switch"
-                      aria-checked={meeting.auto_join}
-                      onClick={() => toggleAutoJoin.mutate({ meetingId: meeting.id, enabled: !meeting.auto_join })}
-                      className={`relative h-6 w-11 rounded-full transition-colors ${meeting.auto_join ? 'bg-ocean' : 'bg-stone-300'}`}
-                    >
-                      <span
-                        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
-                          meeting.auto_join ? 'translate-x-5' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
-                    <span className="w-6 text-xs font-medium text-stone-500">{meeting.auto_join ? 'ON' : 'OFF'}</span>
-                  </label>
                 </div>
               </div>
             ))}

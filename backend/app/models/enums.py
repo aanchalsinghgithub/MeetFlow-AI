@@ -15,7 +15,6 @@ class MeetingProvider(StrEnum):
 
 class MeetingStatus(StrEnum):
     SCHEDULED = "scheduled"
-    BOT_JOINING = "bot_joining"
     IN_PROGRESS = "in_progress"
     COMPLETED = "completed"
     FAILED = "failed"

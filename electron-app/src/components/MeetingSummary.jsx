@@ -194,7 +194,7 @@ export default function MeetingSummary({ meeting }) {
     return <div style={styles.error}>⚠ {error}</div>;
   }
 
-  const stillRunning = ['scheduled', 'bot_joining', 'in_progress'].includes(meeting.status);
+  const stillRunning = ['scheduled', 'in_progress'].includes(meeting.status);
 
   if (!detail?.summary && stillRunning) {
     return (

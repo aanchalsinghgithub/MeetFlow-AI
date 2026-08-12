@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  Bot,
   CalendarClock,
   ClipboardCheck,
   Mic,
@@ -10,7 +9,6 @@ import {
   Users,
   Lock,
   Building2,
-  ToggleRight,
   Sparkles,
   Star,
   Download,
@@ -67,9 +65,9 @@ const steps = [
     body: 'Open the Meetings tab and click "Connect Google Calendar." Sign in with Google and allow read-only calendar access - it takes about ten seconds and nothing is ever written back to your calendar.'
   },
   {
-    icon: ToggleRight,
-    title: 'Turn on Auto Join',
-    body: 'Every upcoming Google Meet call from your calendar shows up automatically. Flip the Auto Join switch on any of them and the bot joins on its own, records, and transcribes with speaker names.'
+    icon: Mic,
+    title: 'Join and start capture',
+    body: 'Join your Google Meet call as usual, then hit "Start Capture" in the MeetFlow desktop app. It captures your system audio locally and transcribes it live, with speaker names.'
   },
   {
     icon: Send,
@@ -133,7 +131,7 @@ export function Welcome({ onLogin, onSignup }: { onLogin: () => void; onSignup: 
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-5">
           <div className="flex items-center gap-3">
             <div className="grid h-10 w-10 place-items-center rounded bg-ocean text-white shadow-sm">
-              <Bot size={22} />
+              <Sparkles size={22} />
             </div>
             <span className="text-lg font-semibold">MeetFlow AI</span>
           </div>
@@ -392,7 +390,7 @@ export function Welcome({ onLogin, onSignup }: { onLogin: () => void; onSignup: 
           <div className="flex flex-col justify-between gap-6 sm:flex-row sm:items-center">
             <div className="flex items-center gap-3">
               <div className="grid h-9 w-9 place-items-center rounded bg-ocean text-white">
-                <Bot size={18} />
+                <Sparkles size={18} />
               </div>
               <div>
                 <div className="text-sm font-semibold">MeetFlow AI</div>

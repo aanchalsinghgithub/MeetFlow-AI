@@ -82,9 +82,6 @@ export const api = {
     ),
   getMeetingStatus: (id) => get(`/api/meetings/${id}/status`),
 
-  joinBot: (id) => post(`/api/meetings/${id}/join-bot`, {}),
-  setAutoJoin: (id, enabled) =>
-    post(`/api/meetings/${id}/auto-join`, { enabled }),
   finalizeMeeting: (id) => post(`/api/meetings/${id}/finalize`, {}),
 
   getTask: (id) => get(`/api/tasks/${id}`),

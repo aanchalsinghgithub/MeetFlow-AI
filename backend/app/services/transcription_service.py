@@ -47,8 +47,9 @@ class TranscriptionService:
 
         # BUGFIX: this used to only hint Whisper with names pulled from
         # meeting.participants (calendar invite data), which is often
-        # empty for ad-hoc meetings or when the bot can't read attendees
-        # off the call. Whisper's initial_prompt biases what it *hears* -
+        # empty for ad-hoc meetings or when there's no calendar invite to
+        # read attendees off of. Whisper's initial_prompt biases what it
+        # *hears* -
         # a name it's been told to expect gets transcribed correctly far
         # more often than one it has to guess cold. Trying to fix wrong
         # words after the fact (a fixed list of "aacha" -> "Aanchal"

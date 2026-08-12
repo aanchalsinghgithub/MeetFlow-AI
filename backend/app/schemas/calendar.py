@@ -24,24 +24,16 @@ class UpcomingMeetingRead(BaseModel):
     starts_at: datetime | None = None
     ends_at: datetime | None = None
     status: str
-    auto_join: bool
     participants: list[str] = []
-    error_message: str | None = None
 
     class Config:
         from_attributes = True
 
 
-class AutoJoinUpdate(BaseModel):
-    enabled: bool
-
-
 class MeetingStatusRead(BaseModel):
     id: int
     status: str
-    auto_join: bool
     title: str
-    error_message: str | None = None
 
     class Config:
         from_attributes = True

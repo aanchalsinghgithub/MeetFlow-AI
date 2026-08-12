@@ -5,10 +5,9 @@ import { api, TranscriptResponse, UpcomingMeeting } from '../api';
 
 const statusLabels: Record<string, string> = {
   scheduled: 'Scheduled',
-  bot_joining: 'Bot is joining the meeting...',
-  in_progress: 'Live - bot is in the meeting',
+  in_progress: 'Live - capturing audio',
   completed: 'Meeting ended',
-  failed: 'Bot failed to join'
+  failed: 'Failed'
 };
 
 export function LiveTranscript({
@@ -68,7 +67,7 @@ export function LiveTranscript({
         {transcript.isLoading && <p className="text-sm text-stone-500">Loading transcript...</p>}
         {!transcript.isLoading && (transcript.data?.entries.length ?? 0) === 0 && (
           <p className="text-sm text-stone-500">
-            {search ? 'No transcript entries match your search.' : 'No transcript yet. It will appear here once the bot joins and audio is captured.'}
+            {search ? 'No transcript entries match your search.' : 'No transcript yet. It will appear here once capture starts.'}
           </p>
         )}
         {transcript.data?.entries.map((entry) => (

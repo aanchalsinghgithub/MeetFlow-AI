@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
+from sqlalchemy import DateTime, Float, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -18,16 +18,6 @@ class Organization(Base):
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(255), unique=True, index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.utcnow)
-
-    # NEW: per-organization Google account the meeting bot joins as. Each
-    # org can now have its own bot identity instead of every tenant sharing
-    # one global account. `google_bot_storage_state` is the Playwright
-    # session (cookies/localStorage) as a JSON string — NOTE: stored as
-    # plaintext for now, same sensitivity as a session token/API key. If
-    # this DB is ever exposed, that session is compromised; encrypting this
-    # column is a reasonable follow-up but out of scope here.
-    google_bot_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    google_bot_storage_state: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     users: Mapped[list["User"]] = relationship(back_populates="organization")
     calendar_connections: Mapped[list["CalendarConnection"]] = relationship(back_populates="organization")
@@ -85,11 +75,6 @@ class Meeting(Base, TimestampMixin):
     blockers: Mapped[list[str]] = mapped_column(JSON, default=list)
     transcript: Mapped[list[dict]] = mapped_column(JSON, default=list)
     status: Mapped[str] = mapped_column(String(40), default=MeetingStatus.SCHEDULED.value)
-    # BUGFIX: the bot had no way to tell the UI *why* a join attempt failed —
-    # the frontend only ever showed a bare "failed" badge. This stores the
-    # exception message from MeetingBot.run() so it can be surfaced.
-    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
-    auto_join: Mapped[bool] = mapped_column(Boolean, default=False)
     calendar_connection_id: Mapped[int | None] = mapped_column(ForeignKey("calendar_connections.id"), nullable=True)
 
     organization: Mapped[Organization] = relationship(back_populates="meetings")

@@ -175,12 +175,10 @@ export class AudioCapture {
       const res = await fetch(url, { method: 'POST', headers, body: formData });
       if (!res.ok) {
         const text = await res.text();
-        // BUGFIX: the backend returns 400 "Meeting is not active" once the
-        // bot detects the meeting has ended and flips status to
-        // "completed". Previously we just reported the error and kept
-        // capturing/POSTing every chunkSeconds forever (visible in the
-        // logs as a 400 every ~15s until someone manually hit Stop).
-        // Auto-stop as soon as the backend tells us the meeting is over.
+        // If the backend ever rejects a chunk because the meeting isn't
+        // active (e.g. already marked completed), stop capturing instead
+        // of retrying forever — previously this just logged the error and
+        // kept POSTing every chunkSeconds indefinitely.
         if (res.status === 400 && /not active/i.test(text)) {
           this.onError('Meeting has ended — stopping capture automatically.');
           this.stop();

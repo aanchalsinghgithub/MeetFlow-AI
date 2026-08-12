@@ -8,7 +8,6 @@ temp/
 logs/
 audio/
 google_profile/
-google_auth_state.json
 
 *.zip
 *.wav

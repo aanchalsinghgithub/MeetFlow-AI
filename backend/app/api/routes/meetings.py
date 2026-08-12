@@ -3,14 +3,12 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
-from fastapi.responses import FileResponse
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import CurrentUser, get_current_user
 from app.models.entities import CalendarConnection, Meeting, Participant, Transcript
 from app.schemas.calendar import (
-    AutoJoinUpdate,
     MeetingStatusRead,
     TranscriptEntryRead,
     TranscriptResponse,
@@ -28,7 +26,6 @@ from app.schemas.meeting import (
 )
 from app.services.calendar_service import CalendarIntegrationService
 from app.services.email_service import EmailService
-from app.services.meeting_bot_service import MeetingBotService
 from app.services.meeting_pipeline import MeetingPipeline
 from app.services.transcription_service import TranscriptionService
 
@@ -91,7 +88,7 @@ def upcoming_meetings(
 
     Refreshes meetings from any connected Google Calendar accounts, then
     returns Google Meet meetings starting from now onward, ordered by start
-    time, with Auto Join state and current bot status.
+    time.
     """
     calendar_service = CalendarIntegrationService()
     for connection in (
@@ -120,9 +117,7 @@ def upcoming_meetings(
             "starts_at": meeting.starts_at,
             "ends_at": meeting.ends_at,
             "status": meeting.status,
-            "auto_join": meeting.auto_join,
             "participants": [p.name for p in meeting.participants],
-            "error_message": meeting.error_message,
         }
         for meeting in meetings
     ]
@@ -160,9 +155,7 @@ def recent_meetings(
             "starts_at": meeting.starts_at,
             "ends_at": meeting.ends_at,
             "status": meeting.status,
-            "auto_join": meeting.auto_join,
             "participants": [p.name for p in meeting.participants],
-            "error_message": meeting.error_message,
         }
         for meeting in meetings
     ]
@@ -183,7 +176,6 @@ def _meeting_detail_dict(meeting: Meeting) -> dict:
         "blockers": meeting.blockers,
         "transcript": meeting.transcript,
         "status": meeting.status,
-        "error_message": meeting.error_message,
         "participants": [participant.name for participant in meeting.participants],
         "participant_emails": [participant.email for participant in meeting.participants if participant.email],
         "task_count": len(meeting.tasks),
@@ -316,11 +308,16 @@ async def upload_audio_chunk(
     if not meeting:
         raise HTTPException(status_code=404, detail="Meeting not found")
 
-    if meeting.status not in ("in_progress", "bot_joining"):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Meeting is not active (status={meeting.status}). Start the bot first.",
-        )
+    # BUGFIX: this used to require status "in_progress" or "bot_joining",
+    # which only the (now-removed) meeting bot ever set — Start Capture
+    # alone could never make a meeting "active", so every audio chunk was
+    # silently rejected with a 400 unless the bot had also successfully
+    # joined first. Capture starting *is* what makes a meeting active now:
+    # the first chunk to arrive for a scheduled meeting flips it to
+    # in_progress itself, no bot involved.
+    if meeting.status == MeetingStatus.SCHEDULED.value:
+        meeting.status = MeetingStatus.IN_PROGRESS.value
+        db.commit()
 
     content = await audio.read()
     if not content:
@@ -399,64 +396,6 @@ async def finalize_meeting(
 # ------------------------------------------------------------------
 # Existing endpoints (unchanged)
 # ------------------------------------------------------------------
-@router.post("/{meeting_id}/join-bot")
-def join_bot(
-    meeting_id: int,
-    db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    print("\n===================================")
-    print("JOIN BOT ENDPOINT HIT")
-    print(f"Meeting ID = {meeting_id}")
-    print("===================================\n")
-
-    meeting = _get_org_meeting(db, meeting_id, current_user.organization_id)
-    if not meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-
-    result = MeetingBotService().join(
-        meeting.provider,
-        meeting.join_url or "",
-        meeting_id=meeting.id,
-    )
-
-    print(f"JOIN RESULT => {result}")
-    return result
-
-
-# NEW: on Render there's no way to see the browser or SSH in on the free
-# tier, so meeting_bot.py's debug screenshots (meet_debug_<id>.png,
-# after_join_attempt_<id>.png) were being saved to disk but were completely
-# unreachable — you couldn't actually see what the bot saw when it failed.
-# This just serves them back so you can open them in a browser tab.
-@router.get("/{meeting_id}/debug-screenshot")
-def get_debug_screenshot(
-    meeting_id: int,
-    stage: str = "pre_join",  # "pre_join" | "after_join_attempt"
-    db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    meeting = _get_org_meeting(db, meeting_id, current_user.organization_id)
-    if not meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-
-    filename = (
-        f"meet_debug_{meeting_id}.png"
-        if stage == "pre_join"
-        else f"after_join_attempt_{meeting_id}.png"
-    )
-    path = Path(filename)
-    if not path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"No '{stage}' debug screenshot for meeting {meeting_id} yet. "
-                "Trigger a join attempt first (auto-join or POST /join-bot)."
-            ),
-        )
-    return FileResponse(path, media_type="image/png")
-
-
 @router.post("/{meeting_id}/test-transcript")
 def inject_test_transcript(
     meeting_id: int,
@@ -471,7 +410,7 @@ def inject_test_transcript(
     sample = [
         ("Speaker 1", "Hello, this is a test meeting for MeetFlow AI.", "00:00"),
         ("Speaker 2", "Yes, I am testing the automatic transcription feature.", "00:05"),
-        ("Speaker 1", "The bot should be capturing audio and converting it to text.", "00:12"),
+        ("Speaker 1", "MeetFlow should be capturing audio and converting it to text.", "00:12"),
         ("Speaker 2", "Let's assign the login redesign task to Ajay by next Friday.", "00:20"),
         ("Speaker 1", "Agreed. Priya will fix the API timeout issue this sprint.", "00:28"),
     ]
@@ -479,58 +418,6 @@ def inject_test_transcript(
         db.add(Transcript(meeting_id=meeting_id, speaker=speaker, text=text, timestamp=timestamp))
     db.commit()
     return {"status": "ok", "entries_added": len(sample)}
-
-
-@router.post("/{meeting_id}/auto-join", response_model=MeetingStatusRead)
-def set_auto_join(
-    meeting_id: int,
-    payload: AutoJoinUpdate,
-    db: Session = Depends(get_db),
-    current_user: CurrentUser = Depends(get_current_user),
-):
-    meeting = _get_org_meeting(db, meeting_id, current_user.organization_id)
-
-    if not meeting:
-        raise HTTPException(status_code=404, detail="Meeting not found")
-
-    if not meeting.join_url:
-        raise HTTPException(status_code=400, detail="Meeting has no Google Meet URL")
-
-    meeting.auto_join = payload.enabled
-    db.commit()
-    db.refresh(meeting)
-
-    print("\n==============================")
-    print("AUTO JOIN REQUEST RECEIVED")
-    print(f"Meeting ID : {meeting.id}")
-    print(f"Org ID     : {meeting.organization_id}")
-    print(f"Title      : {meeting.title}")
-    print(f"Status     : {meeting.status}")
-    print(f"Auto Join  : {meeting.auto_join}")
-    print(f"Starts At  : {meeting.starts_at}")
-    print(f"Now        : {datetime.utcnow()}")
-    print("==============================\n")
-
-    should_join_now = (
-        payload.enabled
-        and meeting.status in ("scheduled", "failed")
-        and meeting.join_url
-        and (meeting.starts_at is None or meeting.starts_at <= datetime.utcnow())
-        and (meeting.ends_at is None or meeting.ends_at >= datetime.utcnow())
-    )
-
-    print(f"[AUTO JOIN] should_join_now = {should_join_now}")
-
-    if should_join_now:
-        print(f"[AUTO JOIN] Launching bot for meeting {meeting.id}")
-        result = MeetingBotService().join(
-            meeting.provider,
-            meeting.join_url,
-            meeting_id=meeting.id,
-        )
-        print(f"[AUTO JOIN RESULT] {result}")
-
-    return meeting
 
 
 @router.get("/{meeting_id}/status", response_model=MeetingStatusRead)
